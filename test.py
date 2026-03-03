@@ -1,11 +1,13 @@
-"""Production-ready scientific calculator CLI application."""
+"""Production-ready scientific calculator with CLI and Tkinter GUI."""
 
 from __future__ import annotations
 
 import ast
 import math
 import os
+import tkinter as tk
 from dataclasses import dataclass
+from tkinter import messagebox, ttk
 from typing import Callable, Dict, List, Tuple
 
 
@@ -443,9 +445,256 @@ class CalculatorCLI:
         return f"{value:.15g}"
 
 
+class CalculatorGUI:
+    """Modern Tkinter GUI wrapper around the existing Calculator backend."""
+
+    def __init__(self) -> None:
+        """Initialize GUI state, widgets, and styling."""
+        self.calculator = Calculator()
+        self.root = tk.Tk()
+        self.root.title("Scientific Calculator")
+        self.root.geometry("480x620")
+        self.root.minsize(420, 560)
+        self.expression_var = tk.StringVar()
+        self.mode_var = tk.StringVar(value="Radian")
+        self._configure_style()
+        self._build_layout()
+
+    def _configure_style(self) -> None:
+        """Configure ttk styles for a modern clean appearance."""
+        style = ttk.Style(self.root)
+        style.theme_use("clam")
+        style.configure("App.TFrame", background="#1f2933")
+        style.configure("Display.TEntry", font=("Segoe UI", 20), padding=10)
+        style.configure("Calc.TButton", font=("Segoe UI", 11), padding=8)
+        style.configure("Action.TButton", font=("Segoe UI", 11, "bold"), padding=8)
+        style.configure("Mode.TRadiobutton", background="#1f2933", foreground="#f5f7fa", font=("Segoe UI", 10))
+        self.root.configure(background="#1f2933")
+
+    def _build_layout(self) -> None:
+        """Build and grid all GUI components."""
+        container = ttk.Frame(self.root, style="App.TFrame", padding=12)
+        container.grid(row=0, column=0, sticky="nsew")
+
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
+        for col in range(6):
+            container.columnconfigure(col, weight=1)
+        for row in range(11):
+            container.rowconfigure(row, weight=1)
+
+        display = ttk.Entry(
+            container,
+            textvariable=self.expression_var,
+            justify="right",
+            style="Display.TEntry",
+            font=("Segoe UI", 20),
+        )
+        display.grid(row=0, column=0, columnspan=6, sticky="nsew", padx=2, pady=(2, 10))
+        display.focus_set()
+        display.bind("<Return>", lambda _event: self._evaluate())
+
+        ttk.Button(container, text="History", style="Action.TButton", command=self._show_history).grid(
+            row=1, column=0, columnspan=2, sticky="nsew", padx=2, pady=2
+        )
+        ttk.Button(container, text="Clear", style="Action.TButton", command=self._clear).grid(
+            row=1, column=2, columnspan=2, sticky="nsew", padx=2, pady=2
+        )
+        ttk.Button(container, text="(", style="Calc.TButton", command=lambda: self._append("(")).grid(
+            row=1, column=4, sticky="nsew", padx=2, pady=2
+        )
+        ttk.Button(container, text=")", style="Calc.TButton", command=lambda: self._append(")")).grid(
+            row=1, column=5, sticky="nsew", padx=2, pady=2
+        )
+
+        mode_frame = ttk.Frame(container, style="App.TFrame")
+        mode_frame.grid(row=2, column=0, columnspan=6, sticky="w", padx=2, pady=(6, 10))
+        ttk.Label(mode_frame, text="Mode:", background="#1f2933", foreground="#f5f7fa", font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, padx=(0, 8)
+        )
+        ttk.Radiobutton(
+            mode_frame,
+            text="Degree",
+            value="Degree",
+            variable=self.mode_var,
+            style="Mode.TRadiobutton",
+            command=self._change_mode,
+        ).grid(row=0, column=1, padx=4)
+        ttk.Radiobutton(
+            mode_frame,
+            text="Radian",
+            value="Radian",
+            variable=self.mode_var,
+            style="Mode.TRadiobutton",
+            command=self._change_mode,
+        ).grid(row=0, column=2, padx=4)
+
+        memory_buttons = [
+            ("MC", self._memory_clear),
+            ("MR", self._memory_recall),
+            ("M+", self._memory_add),
+            ("M-", self._memory_subtract),
+            ("%", lambda: self._append("%")),
+            ("//", lambda: self._append("//")),
+        ]
+        for column, (label, action) in enumerate(memory_buttons):
+            ttk.Button(container, text=label, style="Calc.TButton", command=action).grid(
+                row=3, column=column, sticky="nsew", padx=2, pady=2
+            )
+
+        rows = [
+            ["7", "8", "9", "/", "sqrt(", "**"],
+            ["4", "5", "6", "*", "sin(", "cos("],
+            ["1", "2", "3", "-", "tan(", "log("],
+            ["0", ".", "pi", "+", "ln(", "exp("],
+        ]
+
+        start_row = 4
+        for row_offset, row_values in enumerate(rows):
+            for col, value in enumerate(row_values):
+                ttk.Button(
+                    container,
+                    text=value,
+                    style="Calc.TButton",
+                    command=lambda token=value: self._append(token),
+                ).grid(row=start_row + row_offset, column=col, sticky="nsew", padx=2, pady=2)
+
+        bottom_buttons = [
+            ("abs(", lambda: self._append("abs("), 0),
+            ("factorial(", lambda: self._append("factorial("), 1),
+            ("cbrt(", lambda: self._append("cbrt("), 2),
+            ("ans", lambda: self._append("ans"), 3),
+            ("e", lambda: self._append("e"), 4),
+        ]
+        for text, action, column in bottom_buttons:
+            ttk.Button(container, text=text, style="Calc.TButton", command=action).grid(
+                row=8, column=column, sticky="nsew", padx=2, pady=2
+            )
+
+        ttk.Button(container, text="=", style="Action.TButton", command=self._evaluate).grid(
+            row=8, column=5, rowspan=2, sticky="nsew", padx=2, pady=2
+        )
+
+        extra_buttons = [
+            ("asin(", 0),
+            ("acos(", 1),
+            ("atan(", 2),
+            ("arcsin(", 3),
+            ("arccos(", 4),
+            ("arctan(", 5),
+        ]
+        for text, column in extra_buttons:
+            ttk.Button(container, text=text, style="Calc.TButton", command=lambda token=text: self._append(token)).grid(
+                row=9, column=column, sticky="nsew", padx=2, pady=2
+            )
+
+        ttk.Button(container, text="Backspace", style="Action.TButton", command=self._backspace).grid(
+            row=10, column=0, columnspan=3, sticky="nsew", padx=2, pady=(6, 2)
+        )
+        ttk.Button(container, text="Exit", style="Action.TButton", command=self.root.destroy).grid(
+            row=10, column=3, columnspan=3, sticky="nsew", padx=2, pady=(6, 2)
+        )
+
+    def _append(self, token: str) -> None:
+        """Append token text to the display expression."""
+        self.expression_var.set(f"{self.expression_var.get()}{token}")
+
+    def _clear(self) -> None:
+        """Clear current expression from display."""
+        self.expression_var.set("")
+
+    def _backspace(self) -> None:
+        """Remove last character from current expression."""
+        expression = self.expression_var.get()
+        self.expression_var.set(expression[:-1])
+
+    def _evaluate(self) -> None:
+        """Evaluate display expression and show formatted result or error."""
+        expression = self.expression_var.get().strip()
+        if not expression:
+            return
+        try:
+            result = self.calculator.evaluate_expression(expression)
+            self.expression_var.set(self._format_result(result))
+        except (ValidationError, MathOperationError) as exc:
+            messagebox.showerror("Calculation Error", str(exc), parent=self.root)
+
+    def _show_history(self) -> None:
+        """Open a popup window showing calculation history."""
+        history = self.calculator.get_history()
+        popup = tk.Toplevel(self.root)
+        popup.title("Calculation History")
+        popup.geometry("420x300")
+        popup.minsize(360, 240)
+
+        text = tk.Text(popup, wrap="word", font=("Consolas", 11), padx=8, pady=8)
+        text.pack(fill="both", expand=True)
+
+        if not history:
+            text.insert("end", "No history available.")
+        else:
+            for index, (expr, result) in enumerate(history, start=1):
+                text.insert("end", f"{index}. {expr} = {self._format_result(result)}\n")
+        text.configure(state="disabled")
+
+    def _memory_add(self) -> None:
+        """Add current displayed value (or last result) to memory."""
+        value = self._parse_display_value_or_last()
+        self.calculator.memory_add(value)
+
+    def _memory_subtract(self) -> None:
+        """Subtract current displayed value (or last result) from memory."""
+        value = self._parse_display_value_or_last()
+        self.calculator.memory_subtract(value)
+
+    def _memory_recall(self) -> None:
+        """Recall memory value into display."""
+        self.expression_var.set(self._format_result(self.calculator.memory_recall()))
+
+    def _memory_clear(self) -> None:
+        """Clear stored memory value."""
+        self.calculator.memory_clear()
+
+    def _parse_display_value_or_last(self) -> float:
+        """Resolve displayed text to float when possible, else fallback to last result."""
+        text_value = self.expression_var.get().strip()
+        if not text_value:
+            return self.calculator.last_result
+
+        try:
+            return float(text_value)
+        except ValueError:
+            try:
+                value = self.calculator.evaluate_expression(text_value)
+                self.expression_var.set(self._format_result(value))
+                return value
+            except (ValidationError, MathOperationError) as exc:
+                messagebox.showerror("Memory Operation Error", str(exc), parent=self.root)
+                raise
+
+    def _change_mode(self) -> None:
+        """Switch calculator angle mode based on radio selection."""
+        mode = self.mode_var.get().lower()
+        try:
+            self.calculator.set_mode(mode)
+        except ValidationError as exc:
+            messagebox.showerror("Mode Error", str(exc), parent=self.root)
+
+    def _format_result(self, value: float) -> str:
+        """Format result for clean floating-point display."""
+        if abs(value) < 1e-15:
+            value = 0.0
+        return f"{value:.15g}"
+
+    def run(self) -> None:
+        """Start GUI main event loop."""
+        self.root.mainloop()
+
+
 def main() -> None:
-    """Application entry point."""
-    CalculatorCLI().run()
+    """Application entry point launching Tkinter GUI."""
+    CalculatorGUI().run()
 
 
 if __name__ == "__main__":
