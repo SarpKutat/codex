@@ -581,7 +581,7 @@ class CalculatorGUI:
                 row=8, column=column, sticky="nsew", padx=2, pady=2
             )
 
-        ttk.Button(container, text="=", style="Action.TButton", command=self._evaluate).grid(
+        ttk.Button(container, text="=", style="Action.TButton", command=self._on_equals_pressed).grid(
             row=8, column=5, rowspan=2, sticky="nsew", padx=2, pady=2
         )
 
@@ -618,8 +618,12 @@ class CalculatorGUI:
         expression = self.expression_var.get()
         self.expression_var.set(expression[:-1])
 
+    def _on_equals_pressed(self) -> None:
+        """Handle '=' button press by evaluating the current display expression."""
+        self._evaluate()
+
     def _evaluate(self) -> None:
-        """Evaluate display expression and show formatted result or error."""
+        """Evaluate display expression via calculator backend and show result/errors."""
         expression = self.expression_var.get().strip()
         if not expression:
             return
