@@ -312,6 +312,15 @@ class CalculatorCLI:
                 user_input = input("calc> ").strip()
                 if not user_input:
                     continue
+
+                # Support trailing '=' (e.g., 5+3=) but reject '=' anywhere else.
+                if "=" in user_input:
+                    if not user_input.endswith("=") or user_input.count("=") > 1:
+                        raise ValidationError("'=' is only allowed at the end of an expression.")
+                    user_input = user_input[:-1].strip()
+                    if not user_input:
+                        raise ValidationError("Expression cannot be empty.")
+
                 if self._is_easter_egg_trigger(user_input):
                     self._show_galata_tower_easter_egg()
                     continue
