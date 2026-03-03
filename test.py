@@ -614,11 +614,51 @@ class CalculatorGUI:
         expression = self.expression_var.get().strip()
         if not expression:
             return
+        if self._is_gui_easter_egg_trigger(expression):
+            self._show_gui_easter_egg_popup()
+            return
         try:
             result = self.calculator.evaluate_expression(expression)
             self.expression_var.set(self._format_result(result))
         except (ValidationError, MathOperationError) as exc:
             messagebox.showerror("Calculation Error", str(exc), parent=self.root)
+
+    def _is_gui_easter_egg_trigger(self, expression: str) -> bool:
+        """Return True when GUI input should trigger the hidden easter egg."""
+        normalized = expression.strip().lower()
+        return normalized in {"1837837", "leblebi"}
+
+    def _show_gui_easter_egg_popup(self) -> None:
+        """Show Galata Tower ASCII art and unlock message in a popup window."""
+        popup = tk.Toplevel(self.root)
+        popup.title("Hidden Easter Egg")
+        popup.geometry("420x360")
+        popup.resizable(False, False)
+
+        ascii_art = (
+            """
+               /\
+              /  \\
+             /____\
+               ||
+             __||__
+            /  __  \\
+           /  /  \\  \\
+          |  | () |  |
+          |  |____|  |
+          |  |    |  |
+          |  |    |  |
+          |  |____|  |
+          |__________|
+          /__________\
+            """.rstrip("\n")
+        )
+
+        content = tk.Text(popup, wrap="word", font=("Consolas", 11), padx=10, pady=10)
+        content.pack(fill="both", expand=True)
+        content.insert("end", f"{ascii_art}\n\n")
+        content.insert("end", "Leblebi unlocked 🥜 Welcome to Galata Tower!")
+        content.configure(state="disabled")
 
     def _show_history(self) -> None:
         """Open a popup window showing calculation history."""
