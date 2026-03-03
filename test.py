@@ -313,21 +313,14 @@ class CalculatorCLI:
                 if not user_input:
                     continue
 
-                # Support trailing '=' (e.g., 5+3=) but reject '=' anywhere else.
-                if "=" in user_input:
-                    if not user_input.endswith("=") or user_input.count("=") > 1:
-                        raise ValidationError("'=' is only allowed at the end of an expression.")
-                    user_input = user_input[:-1].strip()
-                    if not user_input:
-                        raise ValidationError("Expression cannot be empty.")
-
                 if self._is_easter_egg_trigger(user_input):
                     self._show_galata_tower_easter_egg()
                     continue
                 if self._handle_command(user_input):
                     continue
 
-                result = self.calculator.evaluate_expression(user_input)
+                expression = self._prepare_cli_expression(user_input)
+                result = self.calculator.evaluate_expression(expression)
                 print(f"= {self._format_result(result)}")
 
             except (ValidationError, MathOperationError) as exc:
@@ -337,6 +330,27 @@ class CalculatorCLI:
             except EOFError:
                 print("\nGoodbye!")
                 break
+
+    def _prepare_cli_expression(self, raw_input: str) -> str:
+        """Normalize expression input and apply CLI conveniences before evaluation."""
+        expression = raw_input.strip()
+
+        # Support trailing '=' (e.g., 5+3=) but reject '=' anywhere else.
+        if "=" in expression:
+            if not expression.endswith("=") or expression.count("=") > 1:
+                raise ValidationError("'=' is only allowed at the end of an expression.")
+            expression = expression[:-1].strip()
+            if not expression:
+                raise ValidationError("Expression cannot be empty.")
+
+        return self._apply_ans_auto_usage(expression)
+
+    def _apply_ans_auto_usage(self, expression: str) -> str:
+        """Auto-prefix expressions with ans when starting with an operator."""
+        operators = ("//", "**", "+", "-", "*", "/", "%")
+        if self.calculator.history and expression.startswith(operators):
+            return f"ans{expression}"
+        return expression
 
     def _is_easter_egg_trigger(self, user_input: str) -> bool:
         """Return True when the hidden Galata Tower easter egg is triggered."""
@@ -448,9 +462,11 @@ class CalculatorCLI:
         print("Commands: history, clear, exit, mode degree, mode radian, M+, M-, MR, MC")
 
     def _format_result(self, value: float) -> str:
-        """Format result with floating-point normalization."""
+        """Format result with integer-friendly and floating-point-safe output."""
         if abs(value) < 1e-15:
             value = 0.0
+        if float(value).is_integer():
+            return str(int(value))
         return f"{value:.15g}"
 
 

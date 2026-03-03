@@ -54,6 +54,20 @@ class CalculatorCliTests(unittest.TestCase):
     def test_easter_egg_non_trigger(self) -> None:
         self.assertFalse(self.cli._is_easter_egg_trigger("2+2"))
 
+    def test_prepare_expression_trailing_equals(self) -> None:
+        self.assertEqual(self.cli._prepare_cli_expression("5+3="), "5+3")
+
+    def test_prepare_expression_invalid_internal_equals(self) -> None:
+        with self.assertRaises(ValidationError):
+            self.cli._prepare_cli_expression("5=+3")
+
+    def test_ans_auto_usage_when_expression_starts_with_operator(self) -> None:
+        self.cli.calculator.evaluate_expression("5+5")
+        self.assertEqual(self.cli._prepare_cli_expression("+5"), "ans+5")
+
+    def test_format_result_integer_like(self) -> None:
+        self.assertEqual(self.cli._format_result(10.0), "10")
+
 
 if __name__ == "__main__":
     unittest.main()
